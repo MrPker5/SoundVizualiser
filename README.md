@@ -16,5 +16,5 @@ device index you need to use to listen to audio from the speakers.
 ## Arduino Port
 You can have a glance at your device manager to see at what port your arduino listens to.
 
-Like so.
+Like so. In my case this is COM4 Port
 ![COM Port](https://i.imgur.com/aGCXWIk.png)
