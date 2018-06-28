@@ -13,3 +13,8 @@ With this WASAPI protocol you can enable loopback end listen to your speakers an
 Use the example echo script from the PyAudio/PortAudio fork and run it at least once to check which
 device index you need to use to listen to audio from the speakers.
 
+## Arduino Port
+You can have a glance at your device manager to see at what port your arduino listens to.
+
+Like so.
+![COM Port](https://i.imgur.com/aGCXWIk.png)
