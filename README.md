@@ -18,3 +18,6 @@ You can have a glance at your device manager to see at what port your arduino li
 
 Like so. In my case this is COM4 Port
 ![COM Port](https://i.imgur.com/aGCXWIk.png)
+
+## Media
+![](https://gfycat.com/SomeTinyGalago)
