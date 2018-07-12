@@ -1,5 +1,5 @@
 {
-    "port": "COM4",
+    "port": "COM5",
     "board": "arduino:avr:nano",
     "configuration": "cpu=atmega328",
     "sketch": "Arduino\\sound.ino"

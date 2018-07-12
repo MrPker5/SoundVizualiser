@@ -2,49 +2,109 @@ import pyaudio
 import audioop
 import time
 import serial
+import threading
+from pynput.keyboard import Key, Listener
+from win10toast import ToastNotifier
 
-CHUNK = 1024
-FORMAT = pyaudio.paInt16
-CHANNELS = 2
-RATE = 44100
-RECORD_SECONDS = 60
-WAVE_OUTPUT_FILENAME = "output.wav"
+class SoundAnalyzer:
+    def __init__(self):
+        self.CHUNK = 1024
+        self.FORMAT = pyaudio.paInt16
+        self.CHANNELS = 2
+        self.RATE = 44100
+        self.RECORD_SECONDS = 60
+        self.windowsNotification = ToastNotifier()
+        self.max_volume = 4500
+        self.oldtime = time.time()
+        self.stopped = False
+        
 
-max_volume = 4500
+    def volTo256Range(self, rms):
+        return int(rms / self.max_volume * 64) 
 
-ser = serial.Serial('COM4', 9600)
-# total_volumes =[]
+    def StartAnalyzing(self):
+        self.thread = threading.Thread(name='Analyze', target=self.analyzeSound)
+        self.thread.setDaemon(True)
+        self.thread.start()
 
-def volTo256Range(rms):
-    return int(rms / max_volume * 255) 
+    def StopAnalyzing(self):
+        self.shouldAnalyze = False
 
+    def setStop(self):
+        if not self.stopped:
+            self.stopped = True
+            self.showIdleNotification()
+        else:
+            self.stopped = False
+            self.showStartNotification()
 
-p = pyaudio.PyAudio()
-device_info = p.get_device_info_by_index(6)
+    def getStop(self):
+        return self.stopped
 
-stream = p.open(format = pyaudio.paInt16,
-                channels = 8,
-                rate = int(device_info["defaultSampleRate"]),
-                input = True,
-                frames_per_buffer = 512,
-                input_device_index = device_info["index"],
-                as_loopback = True)
-
-for i in range(0, int(RATE / CHUNK * RECORD_SECONDS)):
-    time.sleep(0.01667)
-    data = stream.read(CHUNK)
-    rms = audioop.rms(data, 2)
-    if(rms > max_volume):
-        max_volume = rms
+    def showStartNotification(self):
+        self.windowsNotification.show_toast("Starting...",
+                   "Starting sound analyzing!",
+                   icon_path="soundicon.ico",
+                   duration=2,
+                   threaded=True)
+        
+    def showIdleNotification(self):
+        self.windowsNotification.show_toast("Idle...",
+                   "Now in Idle Mode!",
+                   icon_path="soundicon.ico",
+                   duration=2,
+                   threaded=True)
+       
+    def openArduinoSerial(self):
+        self.arduinoSerial = serial.Serial('COM5', 9600)
     
-    rms = volTo256Range(rms)
-    print(rms)
-    data = bytes([int(rms)])
-    ser.write(data)
+    def resetMaxVolume(self):
+        self.max_volume = 4500
 
+    def analyzeSound(self):
+        self.openArduinoSerial()
+        self.shouldAnalyze = True
+        p = pyaudio.PyAudio()
+        device_info = p.get_device_info_by_index(6)
 
-# print("max: " + str(max(total_volumes)))
-stream.stop_stream()
-stream.close()
-p.terminate()
+        stream = p.open(format = pyaudio.paInt16,
+                        channels = 8,
+                        rate = int(device_info["defaultSampleRate"]),
+                        input = True,
+                        frames_per_buffer = 512,
+                        input_device_index = device_info["index"],
+                        as_loopback = True)
 
+        while self.shouldAnalyze:
+            time.sleep(0.01667)
+            data = stream.read(self.CHUNK)
+            rms = audioop.rms(data, 2)
+            if(rms > self.max_volume):
+                self.max_volume = rms
+            if(time.time() - self.oldtime > 600):
+                self.oldtime = time.time()
+                self.resetMaxVolume()
+
+            rms = self.volTo256Range(rms)
+            data = bytes([int(rms)])
+            self.arduinoSerial.write(data)
+
+        stream.stop_stream()
+        stream.close()
+        p.terminate()
+        self.arduinoSerial.close()
+
+SA = SoundAnalyzer()
+SA.StartAnalyzing()
+
+def on_press(key):
+    if(key == Key.pause):
+        if not SA.getStop():
+            SA.setStop()
+            SA.StopAnalyzing()
+        else:
+            SA.StartAnalyzing()
+            SA.setStop()
+            
+with Listener(on_press=on_press) as listener:
+    listener.join()
